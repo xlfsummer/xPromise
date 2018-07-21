@@ -19,56 +19,40 @@ let xPromise = class xPromise {
       throw new Error(err);
     };
 
-    this.then = function(fn1, fn2) {
-      return new xPromise(function(resolve, reject) {
+    this.then = function(thenFn, catchFn) {
+      return new xPromise(function(nextResolve, nextReject) {
         onResolve = function(data) {
-          let ret;
-          try {
-            ret = fn1(data);
-          } catch (e) {
-            reject(e);
-          }
-          resolve(ret);
+          let ret = tryFn(thenFn.bind(void 0, data), nextReject);
+          nextResolve(ret);
         };
 
+        if (catchFn)
+          onReject = function(err) {
+            let ret = tryFn(catchFn.bind(void 0, err), nextReject);
+            nextResolve(ret);
+          };
+        else
+          onReject = nextReject;
+      });
+    };
+
+    this.catch = function(catchFn) {
+      return new xPromise(function(nextResolve, nextReject) {
+        onResolve = nextResolve;
         onReject = function(err) {
-          let ret;
-          if (fn2 === undefined) {
-            reject(err);
-          } else {
-            try {
-              ret = fn2(err);
-            } catch (e) {
-              reject(e);
-            }
-            resolve(ret);
-          }
+          let ret = tryFn(catchFn.bind(void 0, err), nextReject);
+          nextResolve(ret);
         };
       });
     };
 
-    this.catch = function(fn) {
-      return new xPromise(function(resolve, reject) {
-        onResolve = function(data) {
-          resolve(data);
-        };
+    tryFn(fn.bind(void 0, resolve, reject), reject);
 
-        onReject = function(err) {
-          let ret;
-          try {
-            ret = fn(err);
-          } catch (e) {
-            reject(e);
-          }
-          resolve(ret);
-        };
-      });
-    };
-
-    try {
-      fn(resolve, reject);
-    } catch (e) {
-      reject(e);
+    function tryFn(fn, onErr){
+      let ret;
+      try{ ret = fn() }
+      catch(e){ onErr(e) }
+      return ret;
     }
 
     return this;
