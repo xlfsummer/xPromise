@@ -89,6 +89,16 @@ describe("base", ()=>{
       done();
     });
   });
+
+  it("then and catch can be called by nothing", done => {
+    new Promise(r=>r(42))
+      .then()
+      .catch()
+      .then(d => {
+        expect(d).toBe(42);
+        done();
+      });
+  });
 });
 
 describe("chain call", ()=>{

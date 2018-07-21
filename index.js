@@ -21,10 +21,13 @@ let xPromise = class xPromise {
 
     this.then = function(thenFn, catchFn) {
       return new xPromise(function(nextResolve, nextReject) {
-        onResolve = function(data) {
-          let ret = tryFn(thenFn.bind(void 0, data), nextReject);
-          nextResolve(ret);
-        };
+        if(thenFn)
+          onResolve = function(data) {
+            let ret = tryFn(thenFn.bind(void 0, data), nextReject);
+            nextResolve(ret);
+          };
+        else
+          onResolve = nextResolve;
 
         if (catchFn)
           onReject = function(err) {
@@ -36,15 +39,7 @@ let xPromise = class xPromise {
       });
     };
 
-    this.catch = function(catchFn) {
-      return new xPromise(function(nextResolve, nextReject) {
-        onResolve = nextResolve;
-        onReject = function(err) {
-          let ret = tryFn(catchFn.bind(void 0, err), nextReject);
-          nextResolve(ret);
-        };
-      });
-    };
+    this.catch = this.then.bind(this, void 0);
 
     tryFn(fn.bind(void 0, resolve, reject), reject);
 
