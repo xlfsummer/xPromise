@@ -229,3 +229,16 @@ describe("monaid", ()=>{
     });
   });
 });
+
+describe("expert", ()=>{
+  it("link multi then/catch to one Promise", done=>{
+    let p = new Promise((resolve) => setTimeout(()=>resolve(42)));
+    p.then(_=>1).then(_=>{throw 3})
+    p.catch(err => 4).then(_=>5)
+    p.then(_=>_+1).then(data=>{
+      expect(data).toBe(43);
+      done();
+    })
+    p.then(data => {});
+  })
+});
