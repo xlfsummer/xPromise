@@ -13,29 +13,38 @@ let xPromise = class xPromise {
             : onReject(err)
       );
 
-    let onResolve = _ => _;
-    let onReject = err => {
-      err.message = "uncaught reject: " + err.message;
-      throw new Error(err);
+    let onResolve = data =>{
+      for(let cb of resolveQueue) cb(data);
     };
+
+    let onReject = err => {
+      for(let cb of rejectQueue) cb(err);
+      if(!rejectQueue.length){
+        err.message = "uncaught reject: " + err.message
+        throw new Error(err)
+      }
+    };
+
+    let resolveQueue = [];
+    let rejectQueue = [];
 
     this.then = function(thenFn, catchFn) {
       return new xPromise(function(nextResolve, nextReject) {
         if(thenFn)
-          onResolve = function(data) {
+          resolveQueue.push(data => {
             let ret = tryFn(thenFn.bind(void 0, data), nextReject);
             nextResolve(ret);
-          };
+          });
         else
-          onResolve = nextResolve;
+          resolveQueue.push(nextResolve);
 
         if (catchFn)
-          onReject = function(err) {
+          rejectQueue.push(err => {
             let ret = tryFn(catchFn.bind(void 0, err), nextReject);
             nextResolve(ret);
-          };
+          });
         else
-          onReject = nextReject;
+          rejectQueue.push(nextReject);
       });
     };
 
