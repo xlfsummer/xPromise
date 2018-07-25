@@ -260,7 +260,7 @@ describe("monaid", ()=>{
   })
 });
 
-describe("expert", ()=>{
+describe("other", ()=>{
   it("link multi then/catch to one Promise", done=>{
     let p = new Promise((resolve) => setTimeout(()=>resolve(42)));
     p.then(_=>1).then(_=>{throw 3}).catch(_=>_);
@@ -284,4 +284,30 @@ describe("expert", ()=>{
       }, 10);
     }, 10);
   })
+
+  it("can resolve only once", done =>{
+    let r, p = new Promise(re=>r = re);
+    r(1);
+    r(2);
+    p.then(data=>{
+      expect(data).toBe(1);
+      done();
+    })
+  })
+
+  it("oneway state change", done =>{
+    let rs, rj,  p = new Promise((resolve, reject) => {
+      rs = resolve;
+      rj = reject
+    });
+
+    rs(1);
+    rj(2);
+    
+    p.then(data=>{
+      expect(data).toBe(1);
+      done();
+    })
+  })
+
 });

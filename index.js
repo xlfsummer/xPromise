@@ -1,28 +1,33 @@
 let xPromise = class xPromise {
   constructor(excecutor) {
 
-    this._resolveValue = null;
-    this._state = "pending";
+    this._promiseValue = void 0;
+    this._promiseStatus = "pending";
 
     this._resolveQueue = [];
     this._rejectQueue = [];
 
-    let resolve = data =>
-      void setTimeout(_ => {
-        this._state = "fulfilled";
-        this._resolveValue = data;
-        data && typeof data.then == "function"
-          ? data.then(resolve, reject) //data 是一个 thenable (PromiseLike)
-          : this._resolveQueue.forEach(cb => cb(data));
-      });
+    let resolve = data =>{
 
-    let reject = reason =>
+      if(data && typeof data.then == "function")
+        return void data.then(resolve, reject) //data 是一个 thenable (PromiseLike)
+
+      if(this._promiseStatus != "pending") return;
+      this._promiseStatus = "fulfilled";
+      this._promiseValue = data;
+      void setTimeout(_ => this._resolveQueue.forEach(cb => cb(data)));
+    }
+
+    let reject = reason => {
+      if(this._promiseStatus != "pending") return;
+      this._promiseStatus = "rejected";
+      this._promiseValue = reason;
       void setTimeout(_ => {
-        this._state = "rejected";
-        this._resolveValue = reason;
+        if(!this._rejectQueue.length && !this._caught)
+          console.error("uncaught (in promise)", reason);
         this._rejectQueue.forEach(cb => cb(reason));
-        !this._rejectQueue.length && console.error("uncaught (in promise)", reason);
       });
+    }
 
     try { excecutor(resolve, reject) }
     catch (err) { reject(err) }
@@ -53,12 +58,13 @@ let xPromise = class xPromise {
           this._rejectQueue.push(rejectedFn);
         },
         fulfilled: _ => {
-          setTimeout(_ => fulfilledFn(this._resolveValue));
+          setTimeout(_ => fulfilledFn(this._promiseValue));
         },
         rejected: _ => {
-          setTimeout(_ => rejectedFn(this._resolveValue));
+          this._caught = true;
+          setTimeout(_ => rejectedFn(this._promiseValue));
         }
-      }[this._state]();
+      }[this._promiseStatus]();
     });
   }
 
