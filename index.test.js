@@ -1,4 +1,4 @@
-let Promise = require("./index.js");
+let Promise = require("./index.js"); 
 
 describe("base", ()=>{
   it("invoke fn in promise instantly", done => {
@@ -90,7 +90,7 @@ describe("base", ()=>{
     });
   });
 
-  it("then and catch can be called by nothing", done => {
+  it("then and catch can be called with nothing", done => {
     new Promise(r=>r(42))
       .then()
       .catch()
@@ -228,17 +228,60 @@ describe("monaid", ()=>{
       done();
     });
   });
+
+  it("rejected, when resolve a rejected Promise", done=>{
+    new Promise((rs, rj)=>{
+      rs(new Promise((rs,rj)=>rj(1)))
+    })
+    .catch(e => {
+      expect(e).toBe(1);
+      done();
+    })
+  })
+
+  it("rejected, when reject a resolved Promise", done=>{
+    new Promise((rs, rj)=>{
+      rj(new Promise(r=>r(1)))
+    })
+    .catch(e => {
+      expect(e).toBeInstanceOf(Promise);
+      done();
+    })
+  })
+
+  it("rejected, when throw a resolved Promise", done=>{
+    new Promise((rs, rj)=>{
+      throw new Promise(r=>r(1))
+    })
+    .catch(e => {
+      expect(e).toBeInstanceOf(Promise);
+      done();
+    })
+  })
 });
 
 describe("expert", ()=>{
   it("link multi then/catch to one Promise", done=>{
     let p = new Promise((resolve) => setTimeout(()=>resolve(42)));
-    p.then(_=>1).then(_=>{throw 3})
+    p.then(_=>1).then(_=>{throw 3}).catch(_=>_);
     p.catch(err => 4).then(_=>5)
     p.then(_=>_+1).then(data=>{
       expect(data).toBe(43);
       done();
     })
     p.then(data => {});
+  })
+
+  it("run async when add onfulfilled cb to an already fulfilled promise", done=>{
+    let p = new Promise(r=>r(1));
+    setTimeout(()=>{
+      let a = 0
+      p.then(d => a = d);
+      expect(a).toBe(0)
+      setTimeout(()=>{
+        expect(a).toBe(1);
+        done();
+      }, 10);
+    }, 10);
   })
 });

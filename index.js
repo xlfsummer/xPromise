@@ -1,65 +1,69 @@
 let xPromise = class xPromise {
-  /** @param {(resolve: Function, reject: Function) =>any} fn*/
-  constructor(fn) {
-    let resolve = data => void setTimeout( _ =>
-          data instanceof xPromise
-            ? data.then(resolve, reject)
-            : onResolve(data)
-      );
+  constructor(excecutor) {
 
-    let reject = err => void setTimeout( _ =>
-          err instanceof xPromise
-            ? err.then(resolve, reject)
-            : onReject(err)
-      );
+    this._resolveValue = null;
+    this._state = "pending";
 
-    let onResolve = data =>{
-      for(let cb of resolveQueue) cb(data);
-    };
+    this._resolveQueue = [];
+    this._rejectQueue = [];
 
-    let onReject = err => {
-      for(let cb of rejectQueue) cb(err);
-      if(!rejectQueue.length){
-        err.message = "uncaught reject: " + err.message
-        throw new Error(err)
-      }
-    };
-
-    let resolveQueue = [];
-    let rejectQueue = [];
-
-    this.then = function(thenFn, catchFn) {
-      return new xPromise(function(nextResolve, nextReject) {
-        if(thenFn)
-          resolveQueue.push(data => {
-            let ret = tryFn(thenFn.bind(void 0, data), nextReject);
-            nextResolve(ret);
-          });
-        else
-          resolveQueue.push(nextResolve);
-
-        if (catchFn)
-          rejectQueue.push(err => {
-            let ret = tryFn(catchFn.bind(void 0, err), nextReject);
-            nextResolve(ret);
-          });
-        else
-          rejectQueue.push(nextReject);
+    let resolve = data =>
+      void setTimeout(_ => {
+        this._state = "fulfilled";
+        this._resolveValue = data;
+        data && typeof data.then == "function"
+          ? data.then(resolve, reject) //data 是一个 thenable (PromiseLike)
+          : this._resolveQueue.forEach(cb => cb(data));
       });
-    };
 
-    this.catch = this.then.bind(this, void 0);
+    let reject = reason =>
+      void setTimeout(_ => {
+        this._state = "rejected";
+        this._resolveValue = reason;
+        this._rejectQueue.forEach(cb => cb(reason));
+        !this._rejectQueue.length && console.error("uncaught (in promise)", reason);
+      });
 
-    tryFn(fn.bind(void 0, resolve, reject), reject);
-
-    function tryFn(fn, onErr){
-      let ret;
-      try{ ret = fn() }
-      catch(e){ onErr(e) }
-      return ret;
-    }
+    try { excecutor(resolve, reject) }
+    catch (err) { reject(err) }
 
     return this;
+  }
+
+  then(onfulfilled, onrejected) {
+    let tryFn = (fn, resolve, reject) => {
+      return value => {
+        try { resolve(fn(value)) }
+        catch (e) { reject(e) }
+      };
+    };
+
+    return new xPromise((nextResolve, nextReject) => {
+      let fulfilledFn = onfulfilled
+        ? tryFn(onfulfilled, nextResolve, nextReject)
+        : nextResolve;
+
+      let rejectedFn = onrejected
+        ? tryFn(onrejected, nextResolve, nextReject)
+        : nextReject;
+
+      void {
+        pending: _ => {
+          this._resolveQueue.push(fulfilledFn);
+          this._rejectQueue.push(rejectedFn);
+        },
+        fulfilled: _ => {
+          setTimeout(_ => fulfilledFn(this._resolveValue));
+        },
+        rejected: _ => {
+          setTimeout(_ => rejectedFn(this._resolveValue));
+        }
+      }[this._state]();
+    });
+  }
+
+  catch(catchFn) {
+    return this.then(void 0, catchFn);
   }
 };
 
